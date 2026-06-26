@@ -1,0 +1,64 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 5100
+      MONGO_URI: mongodb://mongo:27017/lms
+      JWT_SECRET: ${JWT_SECRET:-change-me-please-use-a-long-random-string}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3100}
+      SEED_PASSWORD: ${SEED_PASSWORD:-Password@123}
+    ports:
+      - "5100:5100"
+    volumes:
+      - backend_uploads:/app/uploads
+
+  seed:
+    build:
+      context: ./backend
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017/lms
+      SEED_PASSWORD: ${SEED_PASSWORD:-Password@123}
+    command: ["node", "dist/seed.js"]
+    restart: "no"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:5100/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:5100/api}
+      PORT: 3100
+      HOSTNAME: 0.0.0.0
+    command: ["npx", "next", "start", "-p", "3100"]
+    ports:
+      - "3100:3100"
+
+volumes:
+  mongo_data:
+  backend_uploads:
