@@ -14,7 +14,12 @@ import { notFound, errorHandler } from './middleware/error';
 
 const PORT = Number(process.env.PORT || 5100);
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/lms';
+// CORS_ORIGIN may be a single origin, a comma-separated list, or "*" to allow any.
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3100';
+const corsOrigin =
+  CORS_ORIGIN === '*'
+    ? true // reflect the request origin (works with credentials, unlike a literal "*")
+    : CORS_ORIGIN.split(',').map((o) => o.trim());
 
 async function main() {
   await connectDB(MONGO_URI);
